@@ -50,8 +50,6 @@ public:
 	void Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &tp);
 	
 private:
-	Mat ctbl; // Stores the local copy of the contour table.
-	
 	cl_mem    cl_m_binimg;  // buffer for binary image (U8)
 	cl_mem    cl_m_dbgimg;  // buffer for debug image (U8C3)
 	cl_mem    cl_m_tokens;  // buffer for passing token data (uint8)

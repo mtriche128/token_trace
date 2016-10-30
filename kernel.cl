@@ -118,6 +118,7 @@ bool token_check_global(__global token_t *trg);
 
 void ctbl_append(ctbl_t *p_tbl, token_t *p_tkn, uint row, uint col);
 void ctbl_append_global(ctbl_t *p_tbl, __global token_t *p_tkn, uint row, uint col);
+void cbtl_term(ctbl_t *p_tbl, token_t *p_tkn);
 
 void print_title(void);
 void print_info(pe_info_t *p_info, uint row, uint col, uint t);
@@ -339,6 +340,21 @@ void ctbl_append_global(ctbl_t *p_tbl, __global token_t *p_tkn, uint row, uint c
 		p_tbl->data[base+p_tkn->cx++] = row;
 		p_tbl->data[base+p_tkn->cx++] = col;
 	}
+}
+
+/**
+ * @brief Append a contour point.
+ * 
+ * @param p_tbl Pointer to the contour table.
+ * @param p_tkn Pointer to the target token.
+ */
+
+void cbtl_term(ctbl_t *p_tbl, token_t *p_tkn)
+{
+	uint base = p_tkn->id*p_tbl->cols;
+	
+	// Record the number of contour coordinates in the first column.
+	p_tbl->data[base] = p_tkn->cx; 
 }
 
 /**
@@ -656,6 +672,7 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 			//if(p_info->touch_token.state & CS_INNER)
 			//{
 			ctbl_append(p_tbl, p_info->touch_token, row, col);
+			cbtl_term(p_tbl, p_info->touch_token); // terminate the current contour chain
 			//}
 		}
 	}

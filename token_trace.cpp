@@ -35,16 +35,20 @@ int main(void)
 	
 	OCL_TTrace contour("kernel.cl", 100, 100);
 	
+	// allocate space for the local copy of the contour table
+	Mat ctbl = Mat(10, 10, CV_U32);
+	
 	/* ------ Run Test ------ */
 	
-	contour.Trace(bin_img, dbg_img, tp);
+	contour.Trace(bin_img, dbg_img, ctbl, tp);
+	
+	/* ------ Output Results ------ */
 	
 	/* ------ Output Results ------ */
 	
 	cout << "upload time   = " << tp.ul_time * 1e6 << " us" << endl;
 	cout << "kernel time   = " << tp.k_time * 1e6 << " us" << endl;
 	cout << "download time = " << tp.dl_time * 1e6 << " us" << endl;
-	
 
 	Mat output;
 	resize(dbg_img,output,Size(20*dbg_img.cols,20*dbg_img.rows),0,0,INTER_NEAREST);

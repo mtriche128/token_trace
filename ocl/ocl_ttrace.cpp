@@ -39,10 +39,12 @@ using namespace cv;
 
 typedef struct __attribute__((__packed__)) TOKEN_ENTRY
 {
-	uint8_t  state;  // contains flags related to contour type
-	uint8_t  hist;   // pass/hold history for generating chain-codes
-	uint32_t orow;   // contour's origin row coordinate
-	uint32_t ocol;   // contour's origin column coordinate
+	uint8_t  state; // contains flags related to contour type
+	uint8_t  hist;  // pass/hold history for generating chain-codes
+	uint32_t orow;  // contour's origin row coordinate
+	uint32_t ocol;  // contour's origin column coordinate
+	uint32_t id;    // contour identifier
+	uint32_t cx;    // current index in the contour table
 } token_t;
 
 /* ------------------------------------------------------------------------- *
@@ -188,12 +190,21 @@ OCL_TTrace::OCL_TTrace(string path,
 	                             img_height*sizeof(token_t), 
 	                             NULL, &err);
 	assert(err == CL_SUCCESS); // failed to create buffer object
+	
+	cl_m_cnt = clCreateBuffer(context,
+	                          CL_MEM_READ_WRITE,
+	                          sizeof(uint32_t), 
+	                          NULL, &err);
+	assert(err == CL_SUCCESS); // failed to create buffer object
+	
+	cl_m_ctbl = clCreateBuffer(context,
+	                           CL_MEM_READ_WRITE,
+	                           sizeof(uint32_t)*ctbl_width*ctbl_height, 
+	                           NULL, &err);
+	assert(err == CL_SUCCESS); // failed to create buffer object
 
 	cl_k_ttrace = clCreateKernel(program, "TOKEN_TRACE", &err);
 	assert(err == CL_SUCCESS); // failed to create kernel
-	
-	// allocate space for the local copy of the contour table
-	ctbl = Mat(ctbl_width, ctbl_height, CV_U32);
 };
 
 /**
@@ -206,22 +217,27 @@ OCL_TTrace::~OCL_TTrace()
 	clReleaseMemObject(cl_m_dbgimg);
 }
 
-void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, TimeProfile &tp)
+void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &tp)
 {
 	cl_int err;
-	cl_event ul_event, k_event;
+	cl_event ul_event, k_event, dl_event;
 	
 	uint32_t img_rows  = img_in.rows;
 	uint32_t img_cols  = img_in.cols;
 	uint32_t ctbl_rows = ctbl.rows;
 	uint32_t ctbl_cols = ctbl.cols;
+	uint32_t cnt_init  = 0; // the initial counter value
 	
 	size_t gsize = img_rows; // group size
 	gsize += LOCAL_SIZE - (gsize%LOCAL_SIZE);
 	
 	size_t lsize = LOCAL_SIZE; // local size
 	
+	// upload the image
 	OCL_UploadBuffer(cl_m_binimg, img_in.data, img_in.rows*img_in.cols, &ul_event);
+	
+	// initialize the counter for the contour table
+	OCL_UploadBuffer(cl_m_cnt, &cnt_init, sizeof(uint32_t), &ul_event);
 	
 	err  = clSetKernelArg(cl_k_ttrace, 0, sizeof(cl_mem),   &cl_m_binimg);
 	err |= clSetKernelArg(cl_k_ttrace, 1, sizeof(cl_mem),   &cl_m_dbgimg);
@@ -232,16 +248,10 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, TimeProfile &tp)
 	err |= clSetKernelArg(cl_k_ttrace, 6, sizeof(cl_mem),   &cl_m_ctbl);
 	err |= clSetKernelArg(cl_k_ttrace, 7, sizeof(uint32_t), &ctbl_rows);
 	err |= clSetKernelArg(cl_k_ttrace, 8, sizeof(uint32_t), &ctbl_cols);
-	
-	__global uint *ctbl_cnt,
-	__global uint *ctbl_data,
-	uint *ctbl_rows,
-	uint *ctbl_cols)
-	
 	assert(err == CL_SUCCESS); // failed to set arguments
 
 	err = clEnqueueNDRangeKernel(queue, 
-                                     cl_k_ttrace, 
+                                   cl_k_ttrace, 
 	                             1, 
 	                             NULL, 
 	                             (const size_t*)&gsize, 
@@ -253,8 +263,11 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, TimeProfile &tp)
 
 	clFinish(queue); // let the kernel finish execution
 	
-	tp = TimeProfile(&ul_event, &k_event, NULL);
-	
-	// get the atomic counter's value, it's the number of edge points detected
+	// download the debug image
 	OCL_DownloadBuffer(cl_m_dbgimg, img_out.data, 3*img_in.rows*img_in.cols, NULL);
+	
+	// download the contour table
+	OCL_DownloadBuffer(cl_m_ctbl, ctbl.data, ctbl.size, &dl_event);
+	
+	tp = TimeProfile(&ul_event, &k_event, &dl_event);
 }
