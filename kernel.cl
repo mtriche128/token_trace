@@ -80,7 +80,7 @@ typedef struct PE_INFO
  * @brief Define the contour table.
  */
 
-struct typedef CONTOUR_TABL
+typedef struct CONTOUR_TABLE
 {
 	__global uint *data; // contour data
 	__global uint *cnt;  // row counter
@@ -106,7 +106,7 @@ void pe_begin(pe_info_t *p_info, uchar r_px, uchar ur_px);
 void pe_case1(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
 void pe_case2(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
 void pe_case3(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
-void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col);
+void pe_gencon(pe_info_t *p_info, ctbl_t *p_tbl, uint row, uint col);
 
 void token_move(token_t *src, token_t *dst);
 void token_move_global(token_t *src, __global token_t *dst);
@@ -533,7 +533,7 @@ void pe_case1(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
  * @param col    The current column coordinate.
  */
 
-void pe_case2(pe_info_t *p_info, uint row, uint col)
+void pe_case2(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
 {
 	uchar pass = 1;
 	
@@ -591,7 +591,7 @@ void pe_case2(pe_info_t *p_info, uint row, uint col)
  * @param col    The current column coordinate.
  */
 
-void pe_case3(pe_info_t *p_info, uint row, uint col)
+void pe_case3(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
 {
 	p_info->is_ep = true;
 	p_info->recv_token->state = 0;
@@ -607,22 +607,22 @@ void pe_case3(pe_info_t *p_info, uint row, uint col)
  * @param col    Current pixel col.
  */
 
-void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
+void pe_gencon(pe_info_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 {
 	if(p_info->ecase == 1)
 	{
 		if(p_info->is_osp)
 		{
-			ctbl_append(p_tbl, p_info->touch_token, row, col);
+			ctbl_append(p_tbl, &(p_info->touch_token), row, col);
 		}
 		
 		else if(p_info->is_isp)
 		{
-			ctbl_append(p_tbl, p_info->touch_token, row-1, col);
+			ctbl_append(p_tbl, &(p_info->touch_token), row-1, col);
 			
 			if(col != 0)
 			{
-				ctbl_append(p_tbl, p_info->touch_token, row, col-1);
+				ctbl_append(p_tbl, &(p_info->touch_token), row, col-1);
 			}
 		}
 	}
@@ -631,7 +631,7 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 	{
 		if(p_info->is_tpx)
 		{
-			ctbl_append(p_tbl, p_info->touch_token, row, col);
+			ctbl_append(p_tbl, &(p_info->touch_token), row, col);
 		}
 		
 		// check for chain-code 4
@@ -641,7 +641,7 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 			if( ((p_info->row_px & 0x06) == 0x06) &&
 				((p_info->touch_token.hist & 0x01) == 0x00) )
 			{
-				ctbl_append(p_tbl, p_info->touch_token, row, col);
+				ctbl_append(p_tbl, &(p_info->touch_token), row, col);
 			}
 		}
 		
@@ -651,7 +651,7 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 			if( ((p_info->row_px & 0x0E) == 0x00) &&
 				((p_info->touch_token.hist & 0x03) == 0x00) )
 			{
-				ctbl_append(p_tbl, p_info->touch_token, row-1, col);
+				ctbl_append(p_tbl, &(p_info->touch_token), row-1, col);
 			}
 		}
 		
@@ -660,7 +660,7 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 			if( ((p_info->row_px & 0x06) == 0x00) &&
 				((p_info->touch_token.hist & 0x01) == 0x00) )
 			{
-				ctbl_append(p_tbl, p_info->touch_token, row-1, col);
+				ctbl_append(p_tbl, &(p_info->touch_token), row-1, col);
 			}
 		}
 	}
@@ -671,8 +671,8 @@ void pe_gencon(pe_into_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 		{
 			//if(p_info->touch_token.state & CS_INNER)
 			//{
-			ctbl_append(p_tbl, p_info->touch_token, row, col);
-			cbtl_term(p_tbl, p_info->touch_token); // terminate the current contour chain
+			ctbl_append(p_tbl, &(p_info->touch_token), row, col);
+			cbtl_term(p_tbl, &(p_info->touch_token)); // terminate the current contour chain
 			//}
 		}
 	}
@@ -801,8 +801,8 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 				    const uint cols,
 				    __global uint *ctbl_cnt,
 				    __global uint *ctbl_data,
-				    uint *ctbl_rows,
-				    uint *ctbl_cols)
+				    const uint ctbl_rows,
+				    const uint ctbl_cols)
 {
 	
 	unsigned int local_id = get_local_id(0);
@@ -834,10 +834,10 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 	// Initialize the contour table.
 	
 	ctbl_t ctbl = {
-		.data = ctbl_data;
-		.cnt  = ctbl_cnt;
-		.rows = ctbl_rows;
-		.cols = ctbl_cols;
+		.data = ctbl_data,
+		.cnt  = ctbl_cnt,
+		.rows = ctbl_rows,
+		.cols = ctbl_cols
 	};
 	
 	// ------------------------------------------------------------

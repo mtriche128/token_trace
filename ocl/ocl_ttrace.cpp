@@ -267,7 +267,10 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &
 	OCL_DownloadBuffer(cl_m_dbgimg, img_out.data, 3*img_in.rows*img_in.cols, NULL);
 	
 	// download the contour table
-	OCL_DownloadBuffer(cl_m_ctbl, ctbl.data, ctbl.size, &dl_event);
+	OCL_DownloadBuffer(cl_m_ctbl,
+	                   ctbl.data,
+	                   sizeof(uint32_t)*ctbl.rows*ctbl.cols,
+	                   &dl_event);
 	
 	tp = TimeProfile(&ul_event, &k_event, &dl_event);
 }
