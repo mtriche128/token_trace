@@ -34,7 +34,7 @@ int main(void)
 	cvtColor(dbg_img,bin_img,CV_BGR2GRAY);
 	bitwise_not(bin_img,bin_img);
 	
-	OCL_TTrace contour("kernel.cl", 100, 100, 25, 25);
+	OCL_TTrace contour("kernel.cl", 100, 100, 50, 50);
 	
 	// allocate space for the local copy of the contour table
 	Mat ctbl = Mat::zeros(25, 25, CV_32S);

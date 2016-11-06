@@ -239,6 +239,9 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &
 	// initialize the counter for the contour table
 	OCL_UploadBuffer(cl_m_cnt, &cnt_init, sizeof(uint32_t), &ul_event);
 	
+	// upload the contour table (optional)
+	OCL_UploadBuffer(cl_m_ctbl, ctbl.data, sizeof(uint32_t)*ctbl_rows*ctbl_cols, &ul_event);
+	
 	err  = clSetKernelArg(cl_k_ttrace, 0, sizeof(cl_mem),   &cl_m_binimg);
 	err |= clSetKernelArg(cl_k_ttrace, 1, sizeof(cl_mem),   &cl_m_dbgimg);
 	err |= clSetKernelArg(cl_k_ttrace, 2, sizeof(cl_mem),   &cl_m_tokens);

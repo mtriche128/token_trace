@@ -107,6 +107,8 @@ void pe_case1(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
 void pe_case2(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
 void pe_case3(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl);
 void pe_gencon(pe_info_t *p_info, ctbl_t *p_tbl, uint row, uint col);
+void pe_gencon2(pe_info_t *p_info, token_t *p_tkn, ctbl_t *p_tbl, uint row, uint col);
+void pe_gencon2_global(pe_info_t *p_info, __global token_t *p_tkn, ctbl_t *p_tbl, uint row, uint col);
 
 void token_move(token_t *src, token_t *dst);
 void token_move_global(token_t *src, __global token_t *dst);
@@ -119,6 +121,7 @@ bool token_check_global(__global token_t *trg);
 void ctbl_append(ctbl_t *p_tbl, token_t *p_tkn, uint row, uint col);
 void ctbl_append_global(ctbl_t *p_tbl, __global token_t *p_tkn, uint row, uint col);
 void cbtl_term(ctbl_t *p_tbl, token_t *p_tkn);
+void cbtl_term_global(ctbl_t *p_tbl, __global token_t *p_tkn);
 
 void print_title(void);
 void print_info(pe_info_t *p_info, uint row, uint col, uint t);
@@ -325,6 +328,7 @@ void ctbl_append(ctbl_t *p_tbl, token_t *p_tkn, uint row, uint col)
 	// check if there's room to add a new point
 	if((p_tkn->cx+1) < p_tbl->cols)
 	{
+		printf("ctbl_append(): id=%i cx=%i / row=%i col=%i\r\n", p_tkn->id, p_tkn->cx, row, col); 
 		p_tbl->data[base+p_tkn->cx++] = row;
 		p_tbl->data[base+p_tkn->cx++] = col;
 	}
@@ -337,6 +341,7 @@ void ctbl_append_global(ctbl_t *p_tbl, __global token_t *p_tkn, uint row, uint c
 	// check if there's room to add a new point
 	if((p_tkn->cx+1) < p_tbl->cols)
 	{
+		printf("ctbl_append_global(): id=%i cx=%i / row=%i col=%i\r\n", p_tkn->id, p_tkn->cx, row, col); 
 		p_tbl->data[base+p_tkn->cx++] = row;
 		p_tbl->data[base+p_tkn->cx++] = col;
 	}
@@ -357,17 +362,25 @@ void cbtl_term(ctbl_t *p_tbl, token_t *p_tkn)
 	p_tbl->data[base] = p_tkn->cx; 
 }
 
+void cbtl_term_global(ctbl_t *p_tbl, __global token_t *p_tkn)
+{
+	uint base = p_tkn->id*p_tbl->cols;
+	
+	// Record the number of contour coordinates in the first column.
+	p_tbl->data[base] = p_tkn->cx; 
+}
+
 /**
  * @brief Print data table.
  */
 
 void print_title(void)
 {
-	printf("*--------------------------*----------------------*---------------------*\r\n");
-	printf("|      time-space info     |        actions       |      token seen     |\r\n");
-	printf("*-------*------*------*----*----------------------*---------------------*\r\n");
-	printf("| PE(i) |    t |  col | px | case osp isp t h r p | origin(r,c) L R O I |\r\n");
-	printf("*-------*------*------*----*----------------------*---------------------*\r\n");
+	printf("*--------------------------*----------------------*-----------------------------------*\r\n");
+	printf("|      time-space info     |        actions       |             token seen            |\r\n");
+	printf("*-------*------*------*----*----------------------*---------------------*------*------*\r\n");
+	printf("| PE(i) |    t |  col | px | case osp isp t h r p | origin(r,c) L R O I |   id |   cx |\r\n");
+	printf("*-------*------*------*----*----------------------*---------------------*------*------*\r\n");
 }
 
 /**
@@ -400,7 +413,7 @@ void print_info(pe_info_t *p_info, uint row, uint col, uint t)
 		printf("%s", KNRM);
 	}
 	
-	printf("| %5i | %4i | %4i |  %1i | %3i  %2s  %2s  %s %s %s %s | (%4i,%4i) %s %s %s %s |\r\n", 
+	printf("| %5i | %4i | %4i |  %1i | %3i  %2s  %2s  %s %s %s %s | (%4i,%4i) %s %s %s %s | %4i | %4i |\r\n", 
 	       row, t, col, (p_info->row_px & 0x02) >> 1, // time-space
 	       // [actions]
 	       p_info->ecase,
@@ -416,7 +429,9 @@ void print_info(pe_info_t *p_info, uint row, uint col, uint t)
 	       (p_info->touch_token.state & CS_LEFT ) ? "x" : "-",
 	       (p_info->touch_token.state & CS_RIGHT) ? "x" : "-",
 	       (p_info->touch_token.state & CS_OUTER) ? "x" : "-",
-	       (p_info->touch_token.state & CS_INNER) ? "x" : "-");
+	       (p_info->touch_token.state & CS_INNER) ? "x" : "-",
+	        p_info->touch_token.state ? p_info->touch_token.id : -1,
+	        p_info->touch_token.state ? p_info->touch_token.cx : -1);
 }
 
 /**
@@ -523,6 +538,16 @@ void pe_case1(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
 		
 		p_info->was_theld = true;
 	}
+	
+	if(p_info->held_token->state)
+	{
+		pe_gencon2(p_info, p_info->held_token, p_tbl, row, col);
+	}
+	
+	if(p_info->pass_token->state)
+	{
+		pe_gencon2_global(p_info, p_info->pass_token, p_tbl, row, col);
+	}
 }
 
 /**
@@ -553,6 +578,8 @@ void pe_case2(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
 	p_info->touch_token.ocol  = p_info->held_token->ocol;
 	p_info->touch_token.id    = p_info->held_token->id;
 	p_info->touch_token.cx    = p_info->held_token->cx;
+	
+	pe_gencon2(p_info, p_info->held_token, p_tbl, row, col);
 	
 	if(p_info->row_px & 0x02)
 	{
@@ -596,6 +623,9 @@ void pe_case3(pe_info_t *p_info, uint row, uint col, ctbl_t *p_tbl)
 	p_info->is_ep = true;
 	p_info->recv_token->state = 0;
 	p_info->held_token->state = 0;
+
+	pe_gencon2(p_info, p_info->held_token, p_tbl, row, col);
+	pe_gencon2_global(p_info, p_info->recv_token, p_tbl, row, col);
 }
 
 /**
@@ -674,6 +704,190 @@ void pe_gencon(pe_info_t *p_info, ctbl_t *p_tbl, uint row, uint col)
 			ctbl_append(p_tbl, &(p_info->touch_token), row, col);
 			cbtl_term(p_tbl, &(p_info->touch_token)); // terminate the current contour chain
 			//}
+		}
+	}
+}
+
+/**
+ * @brief Generate contour information.
+ * 
+ * @param p_info Pointer to PE execution info.
+ * @param p_info Pointer to the target token.
+ * @param p_tbl  Pointer to the contour table.
+ * @param row    Current pixel row.
+ * @param col    Current pixel col.
+ */
+
+void pe_gencon2(pe_info_t *p_info, token_t *p_tkn, ctbl_t *p_tbl, uint row, uint col)
+{
+	printf("pe_gencon2()\r\n");
+	
+	if(p_info->ecase == 1)
+	{
+		if(p_info->is_osp)
+		{
+			ctbl_append(p_tbl, p_tkn, row, col);
+		}
+		
+		else if(p_info->is_isp)
+		{
+			ctbl_append(p_tbl, p_tkn, row-1, col);
+			
+			if(col != 0)
+			{
+				ctbl_append(p_tbl, p_tkn, row, col-1);
+			}
+		}
+	}
+	
+	else if(p_info->ecase == 2)
+	{
+		if(p_info->is_tpx)
+		{
+			printf("1 ");
+			ctbl_append(p_tbl, p_tkn, row, col);
+		}
+		
+		// check for chain-code 4
+		else if( (p_tkn->state == (CS_OUTER | CS_LEFT)) ||
+			(p_tkn->state == (CS_INNER | CS_RIGHT)) )
+		{
+			if( ((p_info->row_px & 0x06) == 0x06) &&
+				((p_tkn->hist & 0x01) == 0x00) )
+			{
+				printf("2 ");
+				ctbl_append(p_tbl, p_tkn, row, col);
+			}
+		}
+		
+		// check for chain-code 0
+		else if(p_tkn->state == (CS_OUTER | CS_RIGHT))
+		{
+			if( ((p_info->row_px & 0x0E) == 0x00) &&
+				((p_tkn->hist & 0x03) == 0x00) )
+			{
+				printf("3 ");
+				ctbl_append(p_tbl, p_tkn, row-1, col);
+			}
+		}
+		
+		else if(p_tkn->state == (CS_INNER | CS_LEFT))
+		{
+			if( ((p_info->row_px & 0x06) == 0x00) &&
+				((p_tkn->hist & 0x01) == 0x00) )
+			{
+				printf("4 ");
+				ctbl_append(p_tbl, p_tkn, row-1, col);
+			}
+		}
+	}
+	
+	else if(p_info->ecase == 3)
+	{
+		if(p_info->is_ep)
+		{
+			if(p_info->curr_px)
+			{
+				printf("8 ");
+				ctbl_append(p_tbl, p_tkn, row, col);
+				cbtl_term(p_tbl, p_tkn); // terminate the current contour chain
+			}
+			
+			else
+			{
+				printf("9 ");
+				ctbl_append(p_tbl, p_tkn, row-1, col);
+				cbtl_term(p_tbl, p_tkn); // terminate the current contour chain
+			}
+		}
+	}
+}
+
+void pe_gencon2_global(pe_info_t *p_info, __global token_t *p_tkn, ctbl_t *p_tbl, uint row, uint col)
+{
+	printf("pe_gencon2_global()\r\n");
+	
+	if(p_info->ecase == 1)
+	{
+		if(p_info->is_osp)
+		{
+			printf("1 ");
+			ctbl_append_global(p_tbl, p_tkn, row, col);
+		}
+		
+		else if(p_info->is_isp)
+		{
+			printf("2 ");
+			ctbl_append_global(p_tbl, p_tkn, row-1, col);
+			
+			if(col != 0)
+			{
+				printf("3 ");
+				ctbl_append_global(p_tbl, p_tkn, row, col-1);
+			}
+		}
+	}
+	
+	else if(p_info->ecase == 2)
+	{
+		if(p_info->is_tpx)
+		{
+			printf("4 ");
+			ctbl_append_global(p_tbl, p_tkn, row, col);
+		}
+		
+		// check for chain-code 4
+		if( (p_tkn->state == (CS_OUTER | CS_LEFT)) ||
+			(p_tkn->state == (CS_INNER | CS_RIGHT)) )
+		{
+			if( ((p_info->row_px & 0x06) == 0x06) &&
+				((p_tkn->hist & 0x01) == 0x00) )
+			{
+				printf("5 ");
+				ctbl_append_global(p_tbl, p_tkn, row, col);
+			}
+		}
+		
+		// check for chain-code 0
+		if(p_tkn->state == (CS_OUTER | CS_RIGHT))
+		{
+			if( ((p_info->row_px & 0x0E) == 0x00) &&
+				((p_tkn->hist & 0x03) == 0x00) )
+			{
+				printf("6 ");
+				ctbl_append_global(p_tbl, p_tkn, row-1, col);
+			}
+		}
+		
+		else if(p_tkn->state == (CS_INNER | CS_LEFT))
+		{
+			if( ((p_info->row_px & 0x06) == 0x00) &&
+				((p_tkn->hist & 0x01) == 0x00) )
+			{
+				printf("7 ");
+				ctbl_append_global(p_tbl, p_tkn, row-1, col);
+			}
+		}
+	}
+	
+	else if(p_info->ecase == 3)
+	{
+		if(p_info->is_ep)
+		{
+			if(p_info->curr_px)
+			{
+				printf("8 ");
+				ctbl_append_global(p_tbl, p_tkn, row, col);
+				cbtl_term_global(p_tbl, p_tkn); // terminate the current contour chain
+			}
+			
+			else
+			{
+				
+				printf("9 ");
+				ctbl_append_global(p_tbl, p_tkn, row-1, col);
+				cbtl_term_global(p_tbl, p_tkn); // terminate the current contour chain
+			}
 		}
 	}
 }
@@ -855,6 +1069,7 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 	
 	if(row == 0)
 	{ 
+		printf("Contour Table: rows=%i cols=%i init(cnt)=%i\r\n", ctbl.rows, ctbl.cols, *ctbl.cnt);
 		printf("Total Cycles = %i\r\n", T);	
 		print_title();
 	}
@@ -906,7 +1121,7 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 		
 		print_info(&info, row, col, t);
 		dbg_draw(&info, dbg_img_row, row, col, cols);
-		pe_gencon(&info,&ctbl,row,col);
+		//pe_gencon(&info,&ctbl,row,col);
 		
 		barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
 		
