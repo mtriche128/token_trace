@@ -47,12 +47,11 @@ public:
 	                        uint32_t ctbl_width, uint32_t ctbl_height);
 	~OCL_TTrace();
 	
-	void Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &tp);
+	void Trace(const Mat &img_in, Mat &ctbl, TimeProfile &tp);
 	
 private:
 	cl_mem    cl_m_binimg;  // buffer for binary image (U8)
-	cl_mem    cl_m_dbgimg;  // buffer for debug image (U8C3)
-	cl_mem    cl_m_tokens;  // buffer for passing token data (uint8)
+	cl_mem    cl_m_tokens;  // buffer for passing token data (U8)
 	cl_mem    cl_m_cnt;     // buffer for the contour table counter (uint32)
 	cl_mem    cl_m_ctbl;    // buffer for the contour table (uint32[][])
 	cl_kernel cl_k_ttrace;  // handle for the token-trace kernel

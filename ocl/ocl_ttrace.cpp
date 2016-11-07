@@ -178,12 +178,6 @@ OCL_TTrace::OCL_TTrace(string path,
 	                             img_height*img_width, 
 	                             NULL, &err);
 	assert(err == CL_SUCCESS); // failed to create buffer object
-
-	cl_m_dbgimg = clCreateBuffer(context,
-	                             CL_MEM_READ_WRITE,
-	                             3*img_height*img_width, 
-	                             NULL, &err);
-	assert(err == CL_SUCCESS); // failed to create buffer object
 	
 	cl_m_tokens = clCreateBuffer(context,
 	                             CL_MEM_READ_WRITE,
@@ -214,10 +208,9 @@ OCL_TTrace::OCL_TTrace(string path,
 OCL_TTrace::~OCL_TTrace()
 {
 	clReleaseMemObject(cl_m_binimg);
-	clReleaseMemObject(cl_m_dbgimg);
 }
 
-void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &tp)
+void OCL_TTrace::Trace(const Mat &img_in, Mat &ctbl, TimeProfile &tp)
 {
 	cl_int err;
 	cl_event ul_event, k_event, dl_event;
@@ -243,14 +236,13 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &
 	OCL_UploadBuffer(cl_m_ctbl, ctbl.data, sizeof(uint32_t)*ctbl_rows*ctbl_cols, &ul_event);
 	
 	err  = clSetKernelArg(cl_k_ttrace, 0, sizeof(cl_mem),   &cl_m_binimg);
-	err |= clSetKernelArg(cl_k_ttrace, 1, sizeof(cl_mem),   &cl_m_dbgimg);
-	err |= clSetKernelArg(cl_k_ttrace, 2, sizeof(cl_mem),   &cl_m_tokens);
-	err |= clSetKernelArg(cl_k_ttrace, 3, sizeof(uint32_t), &img_rows);
-	err |= clSetKernelArg(cl_k_ttrace, 4, sizeof(uint32_t), &img_cols);
-	err |= clSetKernelArg(cl_k_ttrace, 5, sizeof(cl_mem),   &cl_m_cnt);
-	err |= clSetKernelArg(cl_k_ttrace, 6, sizeof(cl_mem),   &cl_m_ctbl);
-	err |= clSetKernelArg(cl_k_ttrace, 7, sizeof(uint32_t), &ctbl_rows);
-	err |= clSetKernelArg(cl_k_ttrace, 8, sizeof(uint32_t), &ctbl_cols);
+	err |= clSetKernelArg(cl_k_ttrace, 1, sizeof(cl_mem),   &cl_m_tokens);
+	err |= clSetKernelArg(cl_k_ttrace, 2, sizeof(uint32_t), &img_rows);
+	err |= clSetKernelArg(cl_k_ttrace, 3, sizeof(uint32_t), &img_cols);
+	err |= clSetKernelArg(cl_k_ttrace, 4, sizeof(cl_mem),   &cl_m_cnt);
+	err |= clSetKernelArg(cl_k_ttrace, 5, sizeof(cl_mem),   &cl_m_ctbl);
+	err |= clSetKernelArg(cl_k_ttrace, 6, sizeof(uint32_t), &ctbl_rows);
+	err |= clSetKernelArg(cl_k_ttrace, 7, sizeof(uint32_t), &ctbl_cols);
 	assert(err == CL_SUCCESS); // failed to set arguments
 
 	err = clEnqueueNDRangeKernel(queue, 
@@ -265,9 +257,6 @@ void OCL_TTrace::Trace(const Mat &img_in, Mat &img_out, Mat &ctbl, TimeProfile &
 	assert(err == CL_SUCCESS); // failed to execute kernel
 
 	clFinish(queue); // let the kernel finish execution
-	
-	// download the debug image
-	OCL_DownloadBuffer(cl_m_dbgimg, img_out.data, 3*img_in.rows*img_in.cols, NULL);
 	
 	// download the contour table
 	OCL_DownloadBuffer(cl_m_ctbl,

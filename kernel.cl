@@ -892,124 +892,11 @@ void pe_gencon2_global(pe_info_t *p_info, __global token_t *p_tkn, ctbl_t *p_tbl
 	}
 }
 
-/**
- * @brief Draw debuging information.
- * 
- * @param p_info  Pointer to PE execution info.
- * @param dbg_row Debuging image row.
- * @param col     Column coordinate.
- */
-
-void dbg_draw(pe_info_t *p_info, __global uchar *dbg_row, uint row, uint col, uint cols)
-{
-	bool is_not_contour = true;
-	
-	if(p_info->ecase == 1)
-	{
-		if(p_info->is_osp)
-		{
-			dbg_row[3*col]   = 0;
-			dbg_row[3*col+1] = 255;
-			dbg_row[3*col+2] = 0;
-			is_not_contour = false;
-		}
-		
-		else if(p_info->is_isp)
-		{
-			*(dbg_row - 3*cols + 3*col)   = 255;
-			*(dbg_row - 3*cols + 3*col+1) = 0;
-			*(dbg_row - 3*cols + 3*col+2) = 0;
-			
-			if(col != 0)
-			{
-				dbg_row[3*(col-1)]   = 0;
-				dbg_row[3*(col-1)+1] = 0;
-				dbg_row[3*(col-1)+2] = 255;
-			}
-			
-			//is_not_contour = false;
-		}
-	}
-	
-	else if(p_info->ecase == 2)
-	{
-		if(p_info->is_tpx)
-		{
-			dbg_row[3*col]   = 0;
-			dbg_row[3*col+1] = 0;
-			dbg_row[3*col+2] = 255;
-			is_not_contour = false;
-		}
-		
-		// check for chain-code 4
-		if( (p_info->touch_token.state == (CS_OUTER | CS_LEFT)) ||
-		    (p_info->touch_token.state == (CS_INNER | CS_RIGHT)) )
-		{
-			if( ((p_info->row_px & 0x06) == 0x06) &&
-			    ((p_info->touch_token.hist & 0x01) == 0x00) )
-			{
-				dbg_row[3*col]   = 0;
-				dbg_row[3*col+1] = 0;
-				dbg_row[3*col+2] = 255;
-				is_not_contour = false;
-			}
-		}
-		
-		// check for chain-code 0
-		if(p_info->touch_token.state == (CS_OUTER | CS_RIGHT))
-		{
-			if( ((p_info->row_px & 0x0E) == 0x00) &&
-			    ((p_info->touch_token.hist & 0x03) == 0x00) )
-			{
-				*(dbg_row - 3*cols + 3*col)   = 0;
-				*(dbg_row - 3*cols + 3*col+1) = 0;
-				*(dbg_row - 3*cols + 3*col+2) = 255;
-				//is_not_contour = false;
-			}
-		}
-		
-		else if(p_info->touch_token.state == (CS_INNER | CS_LEFT))
-		{
-			if( ((p_info->row_px & 0x06) == 0x00) &&
-			    ((p_info->touch_token.hist & 0x01) == 0x00) )
-			{
-				*(dbg_row - 3*cols + 3*col)   = 0;
-				*(dbg_row - 3*cols + 3*col+1) = 0;
-				*(dbg_row - 3*cols + 3*col+2) = 255;
-				//is_not_contour = false;
-			}
-		}
-	}
-	
-	else if(p_info->ecase == 3)
-	{
-		if(p_info->is_ep)
-		{
-			//if(p_info->touch_token.state & CS_INNER)
-			//{
-				dbg_row[3*col]   = 255;
-				dbg_row[3*col+1] = 0;
-				dbg_row[3*col+2] = 255;
-				is_not_contour = false;
-			//}
-		}
-	}
-	
-	if(is_not_contour)
-	{
-		uchar px = p_info->curr_px ? 255 : 0;
-		dbg_row[3*col]   = px;
-		dbg_row[3*col+1] = px;
-		dbg_row[3*col+2] = px;
-	}
-}
-
 /* ------------------------------------------------------------------------- *
  * Define Kernels                                                            *
  * ------------------------------------------------------------------------- */
 
 __kernel void TOKEN_TRACE ( __global uchar *bin_img,
-				    __global uchar *dbg_img,
 				    __global token_t *token_table,
 				    const uint rows,
 				    const uint cols,
@@ -1025,7 +912,6 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 	
 	__global unsigned char *bin_img_prev_row = bin_img + cols*(row-1);
 	__global unsigned char *bin_img_row = bin_img + cols*row;
-	__global unsigned char *dbg_img_row = dbg_img + 3*cols*row;
 	
 	const unsigned int T = 2*rows + cols; // total cycles which will be executed
 	unsigned int t; // stores current cycle
@@ -1120,7 +1006,6 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 		}
 		
 		print_info(&info, row, col, t);
-		dbg_draw(&info, dbg_img_row, row, col, cols);
 		//pe_gencon(&info,&ctbl,row,col);
 		
 		barrier(CLK_GLOBAL_MEM_FENCE | CLK_LOCAL_MEM_FENCE);
