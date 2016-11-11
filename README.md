@@ -2,7 +2,7 @@
 
 ## Build
 
-Simply run the make file.
+Simply run the makefile.
 
 ```
 cd token_trace
