@@ -173,7 +173,7 @@ void pe_init(pe_info_t *p_info,
              __global token_t *p_tpass,
              __global token_t *p_trecv)
 {
-	p_info->row   = i;
+	p_info->row = i;
 	
 	p_info->ecase = 0;
 	
@@ -831,7 +831,7 @@ __kernel void TOKEN_TRACE ( __global uchar *bin_img,
 	__global unsigned char *bin_img_prev_row = bin_img + cols*(row-1);
 	__global unsigned char *bin_img_row = bin_img + cols*row;
 	
-	const unsigned int T = 2*rows + cols; // total cycles which will be executed
+	const unsigned int T = cols+2*(rows-1); // total cycles which will be executed
 	unsigned int t; // stores current cycle
 	
 	// define and initialize the token held by PE(i)

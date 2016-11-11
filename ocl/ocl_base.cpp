@@ -167,7 +167,7 @@ OCL_Base::OCL_Base(string path)
 		
 		size_t len;
 		char *logstr;
-		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, NULL, NULL, &len);
+		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
 		
 		logstr = new char[len];
 		clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, len, logstr, NULL);

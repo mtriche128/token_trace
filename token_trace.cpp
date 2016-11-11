@@ -89,7 +89,8 @@ int main(int argc, char **argv)
 	
 	/* ------ Output Results ------ */
 
-	cout << "---------------------------------" << endl;
+	cout << "-------------------------------------------------------------------" << endl;
+	cout << "                          [CONTOUR TABLE]                          " << endl;
 
 	DrawContourTable(dbg_img, ctbl);
 	
