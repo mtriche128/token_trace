@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <queue>
+#include <string>
 #include <opencv2/opencv.hpp>
 #include <time.h>
 #include <stdio.h>
@@ -13,22 +14,40 @@ using namespace cv;
 
 void DrawContourTable(Mat &img, Mat &ctbl);
 
-int main(void)
+int main(int argc, char **argv)
 {
 	cout << "===== Token Trace =====" << endl;
+	
+	/* ------ Handle Arguments ------ */
+	
+	if(argc == 1)
+	{
+		cout << "Error: Missing image path command-line argument." << endl;
+		exit(1);
+	}
+	
+	else if(argc > 2)
+	{
+		cout << "Error: Too many command-line arguments given." << endl;
+		exit(1);
+	}
+	
+	if(!strcmp(argv[1], "--help"))
+	{
+		cout << "Usage: token_trace <IMAGE_PATH>" << endl;
+		exit(0);
+	}
 
 	/* ------ Initialize Data and Objects ------ */
 	
 	TimeProfile tp;
 	
 	Mat bin_img;
-	Mat dbg_img = imread("chia_demo.bmp");
-	//Mat dbg_img = imread("square.bmp");
-	//Mat dbg_img = imread("test2.bmp");
-	
+	Mat dbg_img = imread(argv[1]);
+
 	if(!dbg_img.data)
 	{
-		cout << "Error: Unable to read image." << endl;
+		cout << "Error: Unable to read '" << argv[1] << "'." << endl;
 		exit(1);
 	}
 	
@@ -45,22 +64,9 @@ int main(void)
 	contour.Trace(bin_img, ctbl, tp);
 	
 	/* ------ Output Results ------ */
-	/*
-	for(int row = 0; row < 25; row++)
-	{
-		printf("%2i : ", row);
-		
-		for(int col = 0; col < 25; col++)
-		{
-			printf("%2i ", ctbl.at<uint32_t>(row,col));
-		}
-		
-		printf("\r\n");
-	}
-	*/
+
 	cout << "---------------------------------" << endl;
-	
-	
+
 	DrawContourTable(dbg_img, ctbl);
 	
 	/* ------ Output Results ------ */
@@ -72,7 +78,6 @@ int main(void)
 	Mat output;
 	resize(dbg_img,output,Size(20*dbg_img.cols,20*dbg_img.rows),0,0,INTER_NEAREST);
 	imshow("output", output);
-	//imshow("output", dbg_img);
 	
 	while(1)
 	{
